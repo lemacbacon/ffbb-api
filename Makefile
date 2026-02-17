@@ -1,7 +1,10 @@
-.PHONY: lint generate generate-go verify-go e2e
+.PHONY: lint lint-workflows generate generate-go verify-go e2e
 
 lint:
 	npx --yes @redocly/cli lint openapi.yaml
+
+lint-workflows:
+	go run github.com/rhysd/actionlint/cmd/actionlint@latest
 
 generate: generate-go
 

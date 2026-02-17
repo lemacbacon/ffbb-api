@@ -5,9 +5,11 @@ on:
     branches: [main]
     paths:
       - openapi.yaml
+      - '.github/workflows/**'
   pull_request:
     paths:
       - openapi.yaml
+      - '.github/workflows/**'
 
 jobs:
   lint:
@@ -21,3 +23,11 @@ jobs:
 
       - name: Lint OpenAPI spec
         run: make lint
+
+  lint-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Lint GitHub Actions workflows
+        run: make lint-workflows
