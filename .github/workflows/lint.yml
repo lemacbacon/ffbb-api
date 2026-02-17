@@ -19,9 +19,9 @@ jobs:
             openapi:
               - openapi.yaml
             yamls:
-              - "**/*.y?ml"
+              - "**/*.y*ml"
             workflows:
-              - .github/*.y?ml
+              - ".github/workflows/*.y*ml"
 
   lint-openapi:
     needs: changes
