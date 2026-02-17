@@ -11,7 +11,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  regenerate:
+  regenerate-go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
