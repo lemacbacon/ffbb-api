@@ -30,7 +30,7 @@ make lint
 ### Regénérer les clients
 
 ```bash
-make generate-go
+make generate
 ```
 
 ## Contribuer

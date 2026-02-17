@@ -1,7 +1,9 @@
-.PHONY: lint generate-go verify-go e2e
+.PHONY: lint generate generate-go verify-go e2e
 
 lint:
 	npx --yes @redocly/cli lint openapi.yaml
+
+generate: generate-go
 
 generate-go:
 	cd go && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
