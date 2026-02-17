@@ -1,0 +1,26 @@
+name: Go Client
+
+on:
+  pull_request:
+    paths:
+      - openapi.yaml
+      - 'go/**'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+
+      - name: Generate client
+        run: make generate-go
+
+      - name: Verify generated code is up to date
+        run: git diff --exit-code go/client/client.gen.go
+
+      - name: Build
+        run: cd go && go build ./...

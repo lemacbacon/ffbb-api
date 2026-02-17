@@ -1,0 +1,45 @@
+name: E2E Tests
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+      - name: Run e2e tests
+        run: make e2e 2>&1 | tee e2e-output.txt
+
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "E2E tests failed on $(date -u +%Y-%m-%d)" \
+            --label "bug,e2e" \
+            --body "$(cat <<EOF
+          ## E2E test failure
+
+          **Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          **Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          <details>
+          <summary>Test output (first 200 lines)</summary>
+
+          \`\`\`
+          $(head -200 e2e-output.txt)
+          \`\`\`
+
+          </details>
+          EOF
+          )"

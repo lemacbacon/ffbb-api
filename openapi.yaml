@@ -1,0 +1,2231 @@
+openapi: 3.0.3
+info:
+  title: FFBB API
+  description: |
+    API de la Fédération Française de Basketball (FFBB).
+    Combine l'API Directus principale (api.ffbb.app) et le moteur de recherche Meilisearch (meilisearch-prod.ffbb.app).
+  version: 1.0.0
+
+servers:
+  - url: https://api.ffbb.app
+    description: API FFBB principale (Directus)
+  - url: https://meilisearch-prod.ffbb.app
+    description: Meilisearch FFBB (recherche full-text)
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ──────────────────────────────────────────────
+  # API FFBB - Configuration
+  # ──────────────────────────────────────────────
+  /items/configuration:
+    get:
+      operationId: getConfiguration
+      summary: Récupérer la configuration (tokens)
+      description: |
+        Retourne la configuration de l'API, y compris les tokens d'authentification
+        (key_dh pour l'API principale, key_ms pour Meilisearch).
+      tags: [Configuration]
+      security: []
+      responses:
+        '200':
+          description: Configuration récupérée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Configuration'
+
+  # ──────────────────────────────────────────────
+  # API FFBB - Compétitions
+  # ──────────────────────────────────────────────
+  /items/ffbbserver_competitions:
+    get:
+      operationId: listCompetitions
+      summary: Lister les compétitions
+      tags: [Competitions]
+      parameters:
+        - $ref: '#/components/parameters/Fields'
+        - $ref: '#/components/parameters/Filter'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Liste de compétitions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Competition'
+
+  /items/ffbbserver_competitions/{id}:
+    get:
+      operationId: getCompetition
+      summary: Détail d'une compétition
+      tags: [Competitions]
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/Fields'
+        - name: deep[phases][poules][rencontres][_limit]
+          in: query
+          description: Limite pour les rencontres imbriquées dans les poules des phases
+          schema:
+            type: string
+            default: '1000'
+      responses:
+        '200':
+          description: Détail de la compétition
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Competition'
+
+  # ──────────────────────────────────────────────
+  # API FFBB - Poules
+  # ──────────────────────────────────────────────
+  /items/ffbbserver_poules/{id}:
+    get:
+      operationId: getPoule
+      summary: Détail d'une poule
+      tags: [Poules]
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/Fields'
+        - name: deep[rencontres][_limit]
+          in: query
+          description: Limite pour les rencontres imbriquées
+          schema:
+            type: string
+            default: '1000'
+        - name: deep[classements][_limit]
+          in: query
+          description: Limite pour les classements imbriqués
+          schema:
+            type: string
+            default: '1000'
+      responses:
+        '200':
+          description: Détail de la poule
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Poule'
+
+  # ──────────────────────────────────────────────
+  # API FFBB - Saisons
+  # ──────────────────────────────────────────────
+  /items/ffbbserver_saisons:
+    get:
+      operationId: listSaisons
+      summary: Lister les saisons
+      tags: [Saisons]
+      parameters:
+        - $ref: '#/components/parameters/Fields'
+        - $ref: '#/components/parameters/Filter'
+      responses:
+        '200':
+          description: Liste des saisons
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Saison'
+
+  # ──────────────────────────────────────────────
+  # API FFBB - Organismes
+  # ──────────────────────────────────────────────
+  /items/ffbbserver_organismes/{id}:
+    get:
+      operationId: getOrganisme
+      summary: Détail d'un organisme (club, comité, ligue...)
+      tags: [Organismes]
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/Fields'
+      responses:
+        '200':
+          description: Détail de l'organisme
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Organisme'
+
+  # ──────────────────────────────────────────────
+  # API FFBB - Lives
+  # ──────────────────────────────────────────────
+  /json/lives.json:
+    get:
+      operationId: getLives
+      summary: Matchs en direct
+      description: Retourne la liste des matchs actuellement en direct avec les scores temps réel.
+      tags: [Lives]
+      responses:
+        '200':
+          description: Liste des matchs en direct
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Live'
+
+  # ──────────────────────────────────────────────
+  # Meilisearch - Multi-search
+  # ──────────────────────────────────────────────
+  /multi-search:
+    post:
+      operationId: multiSearch
+      summary: Recherche multi-index Meilisearch
+      description: |
+        Effectue une recherche simultanée sur plusieurs index Meilisearch.
+        Index disponibles : ffbbserver_organismes, ffbbserver_rencontres, ffbbserver_terrains,
+        ffbbserver_salles, ffbbserver_tournois, ffbbserver_competitions, ffbbnational_pratiques.
+      tags: [Search]
+      servers:
+        - url: https://meilisearch-prod.ffbb.app
+          description: Meilisearch FFBB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MultiSearchRequest'
+      responses:
+        '200':
+          description: Résultats de recherche
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MultiSearchResult'
+
+components:
+  # ──────────────────────────────────────────────
+  # Security Schemes
+  # ──────────────────────────────────────────────
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Token Bearer pour l'API FFBB (key_dh) ou Meilisearch (key_ms).
+        Les tokens peuvent être récupérés via GET /items/configuration.
+
+  # ──────────────────────────────────────────────
+  # Parameters
+  # ──────────────────────────────────────────────
+  parameters:
+    ItemId:
+      name: id
+      in: path
+      required: true
+      description: Identifiant de l'élément
+      schema:
+        type: string
+
+    Fields:
+      name: fields[]
+      in: query
+      description: Sélection de champs à retourner (pattern Directus)
+      schema:
+        type: array
+        items:
+          type: string
+      style: form
+      explode: true
+
+    Filter:
+      name: filter
+      in: query
+      description: 'Filtre JSON au format Directus (ex: {"actif":{"_eq":true}})'
+      schema:
+        type: string
+
+    Limit:
+      name: limit
+      in: query
+      description: Nombre maximum d'éléments à retourner
+      schema:
+        type: integer
+        default: 10
+
+  # ──────────────────────────────────────────────
+  # Schemas
+  # ──────────────────────────────────────────────
+  schemas:
+    # ── Configuration ──
+    Configuration:
+      type: object
+      required: [id, key_dh, key_ms]
+      properties:
+        id:
+          type: integer
+        key_dh:
+          type: string
+          description: Token Bearer pour l'API FFBB (api.ffbb.app)
+        key_ms:
+          type: string
+          description: Token Bearer pour Meilisearch (meilisearch-prod.ffbb.app)
+        key_directus_website:
+          type: string
+          nullable: true
+        key_directus_competitions:
+          type: string
+          nullable: true
+        ios_version:
+          type: string
+          nullable: true
+        android_version:
+          type: string
+          nullable: true
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_updated:
+          type: string
+          format: date-time
+          nullable: true
+
+    # ── Saison ──
+    Saison:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        nom:
+          type: string
+          nullable: true
+        actif:
+          type: boolean
+          nullable: true
+        debut:
+          type: string
+          nullable: true
+        fin:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        libelle:
+          type: string
+          nullable: true
+        enCours:
+          type: boolean
+          nullable: true
+
+    # ── Competition ──
+    Competition:
+      type: object
+      required: [id, nom, sexe, saison, code, typeCompetition, liveStat, competition_origine, competition_origine_nom, publicationInternet]
+      properties:
+        id:
+          type: string
+        nom:
+          type: string
+        sexe:
+          type: string
+        saison:
+          type: string
+        code:
+          type: string
+        typeCompetition:
+          type: string
+        liveStat:
+          type: boolean
+        competition_origine:
+          type: string
+        competition_origine_nom:
+          type: string
+        publicationInternet:
+          type: string
+        categorie:
+          description: ID de la catégorie (string) ou objet expansé si fields[]=categorie.*
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/CompetitionCategorie'
+        typeCompetitionGenerique:
+          description: Code du type (string) ou objet expansé si fields[]=typeCompetitionGenerique.*
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/TypeCompetitionGenerique'
+        logo: {}
+        poules:
+          type: array
+          items:
+            description: ID de la poule (string) ou objet expansé si fields[]=poules.*
+            oneOf:
+              - type: string
+              - $ref: '#/components/schemas/CompetitionPouleRef'
+        phases:
+          type: array
+          items:
+            description: ID de la phase (string) ou objet expansé si fields[]=phases.*
+            oneOf:
+              - type: string
+              - $ref: '#/components/schemas/Phase'
+
+    CompetitionCategorie:
+      type: object
+      properties:
+        code:
+          type: string
+        ordre:
+          type: integer
+
+    TypeCompetitionGenerique:
+      type: object
+      properties:
+        logo:
+          $ref: '#/components/schemas/Logo'
+
+    Logo:
+      type: object
+      properties:
+        id:
+          type: string
+        gradient_color:
+          type: string
+
+    CompetitionPouleRef:
+      type: object
+      properties:
+        id:
+          type: string
+        nom:
+          type: string
+
+    Phase:
+      type: object
+      required: [id, nom, liveStat, phase_code]
+      properties:
+        id:
+          type: string
+        nom:
+          type: string
+        liveStat:
+          type: boolean
+        phase_code:
+          type: string
+        poules:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhasePoule'
+
+    PhasePoule:
+      type: object
+      required: [id, nom]
+      properties:
+        id:
+          type: string
+        nom:
+          type: string
+        rencontres:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rencontre'
+        engagements:
+          type: array
+          items:
+            $ref: '#/components/schemas/PouleEngagement'
+
+    PouleEngagement:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        idOrganisme:
+          type: object
+          properties:
+            id:
+              type: string
+
+    Rencontre:
+      type: object
+      required: [id, numero, numeroJournee, idPoule, competitionId, resultatEquipe1, resultatEquipe2, joue, nomEquipe1, nomEquipe2, date_rencontre]
+      properties:
+        id:
+          type: string
+        numero:
+          type: string
+        numeroJournee:
+          type: string
+        idPoule:
+          type: string
+        competitionId:
+          type: string
+        resultatEquipe1:
+          type: string
+        resultatEquipe2:
+          type: string
+        joue:
+          type: integer
+        nomEquipe1:
+          type: string
+        nomEquipe2:
+          type: string
+        date_rencontre:
+          type: string
+          format: date-time
+        idOrganismeEquipe1:
+          type: object
+          nullable: true
+          properties:
+            logo: {}
+        idOrganismeEquipe2:
+          type: object
+          nullable: true
+          properties:
+            logo: {}
+        gsId:
+          $ref: '#/components/schemas/GameStats'
+        idEngagementEquipe1:
+          $ref: '#/components/schemas/RencontreEngagement'
+        idEngagementEquipe2:
+          $ref: '#/components/schemas/RencontreEngagement'
+        salle:
+          $ref: '#/components/schemas/RencontreSalle'
+        officiels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Officiel'
+
+    RencontreEngagement:
+      type: object
+      nullable: true
+      properties:
+        nom:
+          type: string
+        id:
+          type: string
+        nomOfficiel:
+          type: string
+        nomUsuel:
+          type: string
+        codeAbrege:
+          type: string
+        logo: {}
+
+    GameStats:
+      type: object
+      nullable: true
+      properties:
+        matchId:
+          type: string
+          nullable: true
+        currentStatus:
+          type: string
+          nullable: true
+        currentPeriod:
+          type: string
+          nullable: true
+        score_q1_home:
+          type: integer
+          nullable: true
+        score_q2_home:
+          type: integer
+          nullable: true
+        score_q3_home:
+          type: integer
+          nullable: true
+        score_q4_home:
+          type: integer
+          nullable: true
+        score_ot1_home:
+          type: integer
+          nullable: true
+        score_ot2_home:
+          type: integer
+          nullable: true
+        score_q1_out:
+          type: integer
+          nullable: true
+        score_q2_out:
+          type: integer
+          nullable: true
+        score_q3_out:
+          type: integer
+          nullable: true
+        score_q4_out:
+          type: integer
+          nullable: true
+        score_ot1_out:
+          type: integer
+          nullable: true
+        score_ot2_out:
+          type: integer
+          nullable: true
+
+    RencontreSalle:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+        numero:
+          type: string
+        libelle:
+          type: string
+        libelle2:
+          type: string
+        adresse:
+          type: string
+        adresseComplement:
+          type: string
+        commune:
+          $ref: '#/components/schemas/Commune'
+        cartographie:
+          $ref: '#/components/schemas/Cartographie'
+
+    Officiel:
+      type: object
+      properties:
+        ordre:
+          type: integer
+        fonction:
+          type: object
+          nullable: true
+          properties:
+            libelle:
+              type: string
+        officiel:
+          type: object
+          nullable: true
+          properties:
+            nom:
+              type: string
+            prenom:
+              type: string
+
+    # ── Poule ──
+    Poule:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        nom:
+          type: string
+        id_competition:
+          type: string
+        rencontres:
+          type: array
+          items:
+            description: ID de la rencontre (string) ou objet expansé si fields[]=rencontres.*
+            oneOf:
+              - type: string
+              - $ref: '#/components/schemas/PouleRencontre'
+        engagements:
+          type: array
+          items:
+            type: string
+        classements:
+          type: array
+          nullable: true
+          items:
+            description: ID du classement (string) ou objet expansé si fields[]=classements.*
+            oneOf:
+              - type: string
+              - $ref: '#/components/schemas/TeamRanking'
+
+    PouleRencontre:
+      type: object
+      required: [id, numero, numeroJournee, idPoule, competitionId, resultatEquipe1, resultatEquipe2, joue, nomEquipe1, nomEquipe2, date_rencontre]
+      properties:
+        id:
+          type: string
+        numero:
+          type: string
+        numeroJournee:
+          type: string
+        idPoule:
+          type: string
+        competitionId:
+          type: string
+        resultatEquipe1:
+          type: string
+        resultatEquipe2:
+          type: string
+        joue:
+          type: integer
+        nomEquipe1:
+          type: string
+        nomEquipe2:
+          type: string
+        date_rencontre:
+          type: string
+          format: date-time
+
+    TeamRanking:
+      type: object
+      required: [id, position, points, matchJoues, gagnes, perdus, nombreForfaits, paniersMarques, paniersEncaisses, difference, quotient]
+      properties:
+        id:
+          type: string
+        idEngagement:
+          $ref: '#/components/schemas/RankingEngagement'
+        position:
+          type: integer
+        points:
+          type: integer
+        matchJoues:
+          type: integer
+        gagnes:
+          type: integer
+        perdus:
+          type: integer
+        nuls:
+          type: integer
+          nullable: true
+        nombreForfaits:
+          type: integer
+        nombreDefauts:
+          type: integer
+          nullable: true
+        paniersMarques:
+          type: integer
+        paniersEncaisses:
+          type: integer
+        difference:
+          type: integer
+        quotient:
+          type: number
+          format: double
+        pointInitiaux:
+          type: integer
+          nullable: true
+        penalitesArbitrage:
+          type: integer
+          nullable: true
+        penalitesEntraineur:
+          type: integer
+          nullable: true
+        penalitesDiverses:
+          type: integer
+          nullable: true
+        horsClassement:
+          type: boolean
+          nullable: true
+        organisme:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            nom:
+              type: string
+            nom_simple:
+              type: string
+              nullable: true
+            logo:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+        idCompetition:
+          type: string
+          nullable: true
+        idPoule:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+
+    RankingEngagement:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+        nomUsuel:
+          type: string
+          nullable: true
+        logo:
+          $ref: '#/components/schemas/Logo'
+
+    # ── Organisme ──
+    Organisme:
+      type: object
+      required: [id, nom, code, telephone, adresse, mail, type, urlSiteWeb, nomClubPro]
+      properties:
+        id:
+          type: string
+        nom:
+          type: string
+        code:
+          type: string
+        telephone:
+          type: string
+        adresse:
+          type: string
+        mail:
+          type: string
+        type:
+          type: string
+        nom_simple:
+          type: string
+          nullable: true
+        urlSiteWeb:
+          type: string
+        nomClubPro:
+          type: string
+        adresseClubPro:
+          type: string
+          nullable: true
+        commune:
+          description: ID de la commune (string) ou objet expansé si fields[]=commune.*
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/Commune'
+        cartographie:
+          description: ID de la cartographie (string) ou objet expansé si fields[]=cartographie.*
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/Cartographie'
+        communeClubPro:
+          type: string
+          nullable: true
+        membres:
+          type: array
+          items:
+            oneOf:
+              - type: integer
+              - $ref: '#/components/schemas/Membre'
+        competitions:
+          type: array
+          items: {}
+        engagements:
+          type: array
+          items:
+            oneOf:
+              - type: integer
+              - $ref: '#/components/schemas/OrganismeEngagement'
+        organismes_fils:
+          type: array
+          items: {}
+        offresPratiques:
+          type: array
+          items:
+            oneOf:
+              - type: integer
+              - $ref: '#/components/schemas/OffrePratique'
+        labellisation:
+          type: array
+          items:
+            oneOf:
+              - type: integer
+              - $ref: '#/components/schemas/Labellisation'
+        salle:
+          description: ID de la salle (string) ou objet expansé si fields[]=salle.*
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/OrganismeSalle'
+        logo:
+          $ref: '#/components/schemas/Logo'
+
+    Commune:
+      type: object
+      nullable: true
+      properties:
+        codePostal:
+          type: string
+        libelle:
+          type: string
+
+    Cartographie:
+      type: object
+      nullable: true
+      properties:
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+
+    Membre:
+      type: object
+      required: [id, nom, prenom, adresse1]
+      properties:
+        id:
+          type: string
+        nom:
+          type: string
+        prenom:
+          type: string
+        adresse1:
+          type: string
+        adresse2:
+          type: string
+          nullable: true
+        codePostal:
+          type: string
+        ville:
+          type: string
+        mail:
+          type: string
+        telephoneFixe:
+          type: string
+          nullable: true
+        telephonePortable:
+          type: string
+        codeFonction:
+          type: string
+
+    OrganismeEngagement:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        idPoule:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+        idCompetition:
+          $ref: '#/components/schemas/EngagementCompetition'
+
+    EngagementCompetition:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+        nom:
+          type: string
+        code:
+          type: string
+        sexe:
+          type: string
+        competition_origine:
+          type: string
+        competition_origine_nom:
+          type: string
+        competition_origine_niveau:
+          type: integer
+        typeCompetition:
+          type: string
+        logo: {}
+        saison:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+        idCompetitionPere:
+          type: string
+          nullable: true
+        organisateur:
+          type: object
+          nullable: true
+          properties:
+            type:
+              type: string
+        typeCompetitionGenerique:
+          description: Code du type (string) ou objet expansé
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/TypeCompetitionGenerique'
+        categorie:
+          description: ID de la catégorie (string) ou objet expansé
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/CompetitionCategorie'
+
+    OffrePratique:
+      type: object
+      properties:
+        ffbbserver_offres_pratiques_id:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            title:
+              type: string
+            categoriePratique:
+              type: string
+            typePratique:
+              type: string
+
+    Labellisation:
+      type: object
+      required: [id, debut, fin]
+      properties:
+        id:
+          type: string
+        debut:
+          type: string
+          format: date-time
+        fin:
+          type: string
+          format: date-time
+        idLabellisationProgramme:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            libelle:
+              type: string
+            labellisationLabel:
+              type: string
+            logo_vertical:
+              type: string
+              nullable: true
+
+    OrganismeSalle:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+        numero:
+          type: string
+        libelle:
+          type: string
+        libelle2:
+          type: string
+        adresse:
+          type: string
+        adresseComplement:
+          type: string
+        commune:
+          $ref: '#/components/schemas/Commune'
+        cartographie:
+          $ref: '#/components/schemas/Cartographie'
+
+    # ── Live ──
+    Live:
+      type: object
+      properties:
+        matchId:
+          type: string
+          nullable: true
+        matchTime:
+          type: string
+          description: Date/heure du match au format ISO 8601 sans timezone (ex. 2026-02-15T15:15:00)
+          nullable: true
+        competitionAbgName:
+          type: string
+          nullable: true
+        score_q1_home:
+          type: integer
+          nullable: true
+        score_q2_home:
+          type: integer
+          nullable: true
+        score_q3_home:
+          type: integer
+          nullable: true
+        score_q4_home:
+          type: integer
+          nullable: true
+        score_q1_out:
+          type: integer
+          nullable: true
+        score_q2_out:
+          type: integer
+          nullable: true
+        score_q3_out:
+          type: integer
+          nullable: true
+        score_q4_out:
+          type: integer
+          nullable: true
+        score_ot1_home:
+          type: integer
+          nullable: true
+        score_ot2_home:
+          type: integer
+          nullable: true
+        score_ot1_out:
+          type: integer
+          nullable: true
+        score_ot2_out:
+          type: integer
+          nullable: true
+        score_home:
+          type: integer
+          nullable: true
+        score_out:
+          type: integer
+          nullable: true
+        clock:
+          type: string
+          description: 'Format: minutes:seconds:milliseconds'
+          nullable: true
+        competitionName:
+          type: string
+          nullable: true
+        currentStatus:
+          type: string
+          nullable: true
+        currentPeriod:
+          type: string
+          nullable: true
+        matchStatus:
+          type: string
+          nullable: true
+        teamName_home:
+          type: string
+          nullable: true
+        teamName_out:
+          type: string
+          nullable: true
+        externalId:
+          $ref: '#/components/schemas/LiveExternalId'
+        teamEngagement_home:
+          $ref: '#/components/schemas/TeamEngagement'
+        teamEngagement_out:
+          $ref: '#/components/schemas/TeamEngagement'
+
+    LiveExternalId:
+      type: object
+      nullable: true
+      properties:
+        nomEquipe1:
+          type: string
+          nullable: true
+        nomEquipe2:
+          type: string
+          nullable: true
+        numeroJournee:
+          type: string
+          nullable: true
+        competitionId:
+          type: object
+          nullable: true
+          properties:
+            code:
+              type: string
+              nullable: true
+            nom:
+              type: string
+              nullable: true
+            sexe:
+              type: string
+              nullable: true
+            typeCompetition:
+              type: string
+              nullable: true
+        idOrganismeEquipe1:
+          $ref: '#/components/schemas/SearchOrganismeEquipe'
+        idOrganismeEquipe2:
+          $ref: '#/components/schemas/SearchOrganismeEquipe'
+        salle:
+          $ref: '#/components/schemas/SearchSalle'
+        idPoule:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              nullable: true
+            nom:
+              type: string
+              nullable: true
+
+    TeamEngagement:
+      type: object
+      nullable: true
+      properties:
+        nomOfficiel:
+          type: string
+          nullable: true
+        nomUsuel:
+          type: string
+          nullable: true
+        codeAbrege:
+          type: string
+          nullable: true
+        logo:
+          $ref: '#/components/schemas/SearchLogo'
+
+    # ── Meilisearch ──
+    MultiSearchRequest:
+      type: object
+      required: [queries]
+      properties:
+        queries:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchQuery'
+
+    SearchQuery:
+      type: object
+      required: [indexUid]
+      properties:
+        indexUid:
+          type: string
+          description: |
+            Index Meilisearch à interroger.
+            Valeurs possibles : ffbbserver_organismes, ffbbserver_rencontres, ffbbserver_terrains,
+            ffbbserver_salles, ffbbserver_tournois, ffbbserver_competitions, ffbbnational_pratiques.
+          enum:
+            - ffbbserver_organismes
+            - ffbbserver_rencontres
+            - ffbbserver_terrains
+            - ffbbserver_salles
+            - ffbbserver_tournois
+            - ffbbserver_competitions
+            - ffbbnational_pratiques
+        q:
+          type: string
+          description: Terme de recherche
+        facets:
+          type: array
+          items:
+            type: string
+          description: Facettes à calculer
+        limit:
+          type: integer
+          default: 10
+        offset:
+          type: integer
+          default: 0
+        filter:
+          type: array
+          items: {}
+          description: Filtres Meilisearch
+        sort:
+          type: array
+          items:
+            type: string
+          description: Critères de tri
+
+    MultiSearchResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+
+    SearchResult:
+      type: object
+      properties:
+        indexUid:
+          type: string
+        hits:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/OrganismesHit'
+              - $ref: '#/components/schemas/RencontresHit'
+              - $ref: '#/components/schemas/CompetitionsHit'
+              - $ref: '#/components/schemas/SallesHit'
+              - $ref: '#/components/schemas/TerrainsHit'
+              - $ref: '#/components/schemas/TournoisHit'
+              - $ref: '#/components/schemas/PratiquesHit'
+        query:
+          type: string
+        processingTimeMs:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        estimatedTotalHits:
+          type: integer
+        facetDistribution:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: integer
+        facetStats:
+          type: object
+          additionalProperties: {}
+
+    # ── Shared search sub-schemas ──
+    SearchLogo:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        gradient_color:
+          type: string
+          nullable: true
+
+    SearchCartographie:
+      type: object
+      nullable: true
+      properties:
+        adresse:
+          type: string
+          nullable: true
+        code_postal:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        ville:
+          type: string
+          nullable: true
+        coordonnees:
+          type: object
+          nullable: true
+          properties:
+            type:
+              type: string
+            coordinates:
+              type: array
+              items:
+                type: number
+                format: double
+        id:
+          type: string
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_updated:
+          type: string
+          format: date-time
+          nullable: true
+
+    SearchCommune:
+      type: object
+      nullable: true
+      properties:
+        code_insee:
+          type: string
+          nullable: true
+        code_postal:
+          type: string
+          nullable: true
+        id:
+          type: integer
+          nullable: true
+        libelle:
+          type: string
+          nullable: true
+        departement:
+          type: string
+          nullable: true
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_updated:
+          type: string
+          format: date-time
+          nullable: true
+
+    Geo:
+      type: object
+      nullable: true
+      properties:
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lng:
+          type: number
+          format: double
+          nullable: true
+
+    SearchOrganismeEquipe:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+        nom_simple:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        nom_club_pro:
+          type: string
+          nullable: true
+        logo:
+          $ref: '#/components/schemas/SearchLogo'
+
+    SearchSalle:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          nullable: true
+        libelle:
+          type: string
+          nullable: true
+        libelle2:
+          type: string
+          nullable: true
+        numero:
+          type: string
+          nullable: true
+        adresse:
+          type: string
+          nullable: true
+        adresseComplement:
+          type: string
+          nullable: true
+        cartographie:
+          $ref: '#/components/schemas/SearchCartographie'
+        commune:
+          $ref: '#/components/schemas/SearchCommune'
+
+    SearchSaison:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+
+    SearchCategorie:
+      type: object
+      nullable: true
+      properties:
+        code:
+          type: string
+          nullable: true
+        libelle:
+          type: string
+          nullable: true
+        ordre:
+          type: integer
+          nullable: true
+        id:
+          type: string
+          nullable: true
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_updated:
+          type: string
+          format: date-time
+          nullable: true
+
+    SearchTypeAssociation:
+      type: object
+      nullable: true
+      properties:
+        libelle:
+          type: string
+          nullable: true
+
+    SearchOrganismeIdPere:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        type:
+          type: string
+          nullable: true
+
+    SearchOrganisateur:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        type:
+          type: string
+          nullable: true
+
+    SearchCompetitionId:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        sexe:
+          type: string
+          nullable: true
+        type_competition:
+          type: string
+          nullable: true
+        creation_en_cours:
+          type: boolean
+          nullable: true
+        live_stat:
+          type: boolean
+          nullable: true
+        publication_internet:
+          type: string
+          nullable: true
+        pro:
+          type: boolean
+          nullable: true
+        logo:
+          $ref: '#/components/schemas/SearchLogo'
+        categorie:
+          $ref: '#/components/schemas/SearchCategorie'
+        competition_origine:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            code:
+              type: string
+            nom:
+              type: string
+        nom_extended:
+          type: string
+          nullable: true
+
+    SearchIdPoule:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+
+    SearchEngagementEquipe:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          nullable: true
+        nom_usuel:
+          type: string
+          nullable: true
+        logo:
+          $ref: '#/components/schemas/SearchLogo'
+
+    SearchNatureSol:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          nullable: true
+        libelle:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        terrain:
+          type: boolean
+          nullable: true
+
+    SearchTournoiTypes3x3:
+      type: object
+      properties:
+        libelle:
+          type: string
+          nullable: true
+
+    SearchAffiche:
+      type: object
+      nullable: true
+      properties:
+        affiche_id:
+          type: string
+          format: uuid
+          nullable: true
+        gradient_color:
+          type: string
+          nullable: true
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+
+    # ── Hit schemas ──
+    OrganismesHit:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+        nomClubPro:
+          type: string
+          nullable: true
+        adresse:
+          type: string
+          nullable: true
+        adresseClubPro:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        engagements_noms:
+          type: string
+          nullable: true
+        mail:
+          type: string
+          nullable: true
+        telephone:
+          type: string
+          nullable: true
+        type:
+          type: string
+          nullable: true
+        urlSiteWeb:
+          type: string
+          nullable: true
+        nom_simple:
+          type: string
+          nullable: true
+        dateAffiliation:
+          type: string
+          format: date-time
+          nullable: true
+        saison_en_cours:
+          type: boolean
+          nullable: true
+        offresPratiques:
+          type: array
+          nullable: true
+          items:
+            type: string
+        labellisation:
+          type: array
+          nullable: true
+          items:
+            type: string
+        cartographie:
+          $ref: '#/components/schemas/SearchCartographie'
+        organisme_id_pere:
+          $ref: '#/components/schemas/SearchOrganismeIdPere'
+        commune:
+          $ref: '#/components/schemas/SearchCommune'
+        communeClubPro:
+          $ref: '#/components/schemas/SearchCommune'
+        type_association:
+          $ref: '#/components/schemas/SearchTypeAssociation'
+        logo:
+          $ref: '#/components/schemas/SearchLogo'
+        _geo:
+          $ref: '#/components/schemas/Geo'
+        thumbnail:
+          type: string
+          nullable: true
+
+    RencontresHit:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        niveau:
+          type: string
+          nullable: true
+          description: 'Valeurs: Départemental, Régional, National, Pro, International, Handibasket'
+        date:
+          type: string
+          format: date-time
+          nullable: true
+        date_rencontre:
+          type: string
+          format: date-time
+          nullable: true
+        horaire:
+          type: string
+          nullable: true
+          description: 'Format HH:MM:SS'
+        nomEquipe1:
+          type: string
+          nullable: true
+        nomEquipe2:
+          type: string
+          nullable: true
+        numeroJournee:
+          type: string
+          nullable: true
+        pratique:
+          type: string
+          nullable: true
+        gsId:
+          type: string
+          nullable: true
+        officiels:
+          type: array
+          nullable: true
+          items:
+            type: string
+        competitionId:
+          $ref: '#/components/schemas/SearchCompetitionId'
+        idOrganismeEquipe1:
+          $ref: '#/components/schemas/SearchOrganismeEquipe'
+        idOrganismeEquipe2:
+          $ref: '#/components/schemas/SearchOrganismeEquipe'
+        idPoule:
+          $ref: '#/components/schemas/SearchIdPoule'
+        saison:
+          $ref: '#/components/schemas/SearchSaison'
+        salle:
+          $ref: '#/components/schemas/SearchSalle'
+        idEngagementEquipe1:
+          $ref: '#/components/schemas/SearchEngagementEquipe'
+        idEngagementEquipe2:
+          $ref: '#/components/schemas/SearchEngagementEquipe'
+        _geo:
+          $ref: '#/components/schemas/Geo'
+        date_timestamp:
+          type: integer
+          nullable: true
+        date_rencontre_timestamp:
+          type: integer
+          nullable: true
+        creation_timestamp:
+          type: integer
+          nullable: true
+        dateSaisieResultat_timestamp:
+          type: integer
+          nullable: true
+        modification_timestamp:
+          type: integer
+          nullable: true
+        thumbnail:
+          type: string
+          nullable: true
+        organisateur:
+          $ref: '#/components/schemas/SearchOrganisateur'
+        niveau_nb:
+          type: integer
+          nullable: true
+
+    CompetitionsHit:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        niveau:
+          type: string
+          nullable: true
+        typeCompetition:
+          type: string
+          nullable: true
+        sexe:
+          type: string
+          nullable: true
+        creationEnCours:
+          type: boolean
+          nullable: true
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_updated:
+          type: string
+          format: date-time
+          nullable: true
+        emarqueV2:
+          type: boolean
+          nullable: true
+        liveStat:
+          type: boolean
+          nullable: true
+        publicationInternet:
+          type: string
+          nullable: true
+        pro:
+          type: boolean
+          nullable: true
+        competition_origine:
+          type: string
+          nullable: true
+        competition_origine_niveau:
+          type: integer
+          nullable: true
+        phase_code:
+          type: string
+          nullable: true
+        competition_origine_nom:
+          type: string
+          nullable: true
+        etat:
+          type: string
+          nullable: true
+        poules:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              nom:
+                type: string
+        phases:
+          type: array
+          nullable: true
+          items:
+            type: string
+        categorie:
+          $ref: '#/components/schemas/SearchCategorie'
+        idCompetitionPere:
+          type: string
+          nullable: true
+        organisateur:
+          $ref: '#/components/schemas/SearchOrganisateur'
+        saison:
+          $ref: '#/components/schemas/SearchSaison'
+        logo:
+          $ref: '#/components/schemas/SearchLogo'
+        typeCompetitionGenerique:
+          type: object
+          nullable: true
+          properties:
+            logo:
+              $ref: '#/components/schemas/SearchLogo'
+        thumbnail:
+          type: string
+          nullable: true
+        niveau_nb:
+          type: integer
+          nullable: true
+
+    SallesHit:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        libelle:
+          type: string
+          nullable: true
+        adresse:
+          type: string
+          nullable: true
+        adresseComplement:
+          type: string
+          nullable: true
+        capaciteSpectateur:
+          type: string
+          nullable: true
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_updated:
+          type: string
+          format: date-time
+          nullable: true
+        libelle2:
+          type: string
+          nullable: true
+        mail:
+          type: string
+          nullable: true
+        numero:
+          type: string
+          nullable: true
+        telephone:
+          type: string
+          nullable: true
+        cartographie:
+          $ref: '#/components/schemas/SearchCartographie'
+        commune:
+          $ref: '#/components/schemas/SearchCommune'
+        _geo:
+          $ref: '#/components/schemas/Geo'
+        thumbnail:
+          type: string
+          nullable: true
+        type:
+          type: string
+          nullable: true
+        type_association:
+          $ref: '#/components/schemas/SearchTypeAssociation'
+
+    TerrainsHit:
+      type: object
+      properties:
+        id:
+          type: integer
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+        sexe:
+          type: string
+          nullable: true
+        adresse:
+          type: string
+          nullable: true
+        nomOrganisateur:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        siteChoisi:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_updated:
+          type: string
+          format: date-time
+          nullable: true
+        ageMax:
+          type: integer
+          nullable: true
+        ageMin:
+          type: integer
+          nullable: true
+        categorieChampionnat3x3Id:
+          type: integer
+          nullable: true
+        categorieChampionnat3x3Libelle:
+          type: string
+          nullable: true
+        debut:
+          type: string
+          format: date-time
+          nullable: true
+        fin:
+          type: string
+          format: date-time
+          nullable: true
+        mailOrganisateur:
+          type: string
+          nullable: true
+        nbParticipantPrevu:
+          type: integer
+          nullable: true
+        tarifOrganisateur:
+          type: integer
+          nullable: true
+        telephoneOrganisateur:
+          type: string
+          nullable: true
+        urlOrganisateur:
+          type: string
+          nullable: true
+        adresseComplement:
+          type: string
+          nullable: true
+        tournoiTypes3x3:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SearchTournoiTypes3x3'
+        cartographie:
+          $ref: '#/components/schemas/SearchCartographie'
+        commune:
+          $ref: '#/components/schemas/SearchCommune'
+        document_flyer:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            filename_download:
+              type: string
+        tournoiType:
+          type: string
+          nullable: true
+        _geo:
+          $ref: '#/components/schemas/Geo'
+        debut_timestamp:
+          type: integer
+          nullable: true
+        fin_timestamp:
+          type: integer
+          nullable: true
+        thumbnail:
+          type: string
+          nullable: true
+
+    TournoisHit:
+      type: object
+      properties:
+        id:
+          type: integer
+          nullable: true
+        nom:
+          type: string
+          nullable: true
+        rue:
+          type: string
+          nullable: true
+        accesLibre:
+          type: boolean
+          nullable: true
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_updated:
+          type: string
+          format: date-time
+          nullable: true
+        largeur:
+          type: integer
+          nullable: true
+        longueur:
+          type: integer
+          nullable: true
+        numero:
+          type: integer
+          nullable: true
+        cartographie:
+          $ref: '#/components/schemas/SearchCartographie'
+        commune:
+          $ref: '#/components/schemas/SearchCommune'
+        natureSol:
+          $ref: '#/components/schemas/SearchNatureSol'
+        _geo:
+          $ref: '#/components/schemas/Geo'
+        thumbnail:
+          type: string
+          nullable: true
+        type:
+          type: string
+          nullable: true
+
+    PratiquesHit:
+      type: object
+      properties:
+        id:
+          type: integer
+          nullable: true
+        titre:
+          type: string
+          nullable: true
+        type:
+          type: string
+          nullable: true
+        adresse:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        date_created:
+          type: string
+          format: date-time
+          nullable: true
+        date_debut:
+          type: string
+          format: date-time
+          nullable: true
+        date_demande:
+          type: integer
+          nullable: true
+        date_fin:
+          type: string
+          format: date-time
+          nullable: true
+        date_updated:
+          type: string
+          format: date-time
+          nullable: true
+        facebook:
+          type: string
+          nullable: true
+        site_web:
+          type: string
+          nullable: true
+        twitter:
+          type: string
+          nullable: true
+        action:
+          type: string
+          nullable: true
+        adresse_salle:
+          type: string
+          nullable: true
+        adresse_structure:
+          type: string
+          nullable: true
+        assurance:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        cp_salle:
+          type: string
+          nullable: true
+        date_inscription:
+          type: integer
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        engagement:
+          type: string
+          nullable: true
+        horaires_seances:
+          type: string
+          nullable: true
+        inscriptions:
+          type: string
+          nullable: true
+        jours:
+          type: array
+          nullable: true
+          items:
+            type: string
+            description: 'Valeurs: Lundi, Mardi, Mercredi, Jeudi, Vendredi, Samedi, Dimanche'
+        label:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        mail_demandeur:
+          type: string
+          nullable: true
+        mail_structure:
+          type: string
+          nullable: true
+        nom_demandeur:
+          type: string
+          nullable: true
+        nom_salle:
+          type: string
+          nullable: true
+        nom_structure:
+          type: string
+          nullable: true
+        nombre_personnes:
+          type: string
+          nullable: true
+        nombre_seances:
+          type: string
+          nullable: true
+        objectif:
+          type: string
+          nullable: true
+          description: 'Valeurs: Accompagnement, Curatif, Preventive'
+        prenom_demandeur:
+          type: string
+          nullable: true
+        public:
+          type: string
+          nullable: true
+        telephone:
+          type: string
+          nullable: true
+        ville_salle:
+          type: string
+          nullable: true
+        cartographie:
+          $ref: '#/components/schemas/SearchCartographie'
+        affiche:
+          $ref: '#/components/schemas/SearchAffiche'
+        _geo:
+          $ref: '#/components/schemas/Geo'
+        date_debut_timestamp:
+          type: integer
+          nullable: true
+        date_fin_timestamp:
+          type: integer
+          nullable: true
+        thumbnail:
+          type: string
+          nullable: true
