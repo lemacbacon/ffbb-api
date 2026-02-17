@@ -3,31 +3,56 @@ name: Lint
 on:
   push:
     branches: [main]
-    paths:
-      - openapi.yaml
-      - '.github/workflows/**'
   pull_request:
-    paths:
-      - openapi.yaml
-      - '.github/workflows/**'
 
 jobs:
-  lint:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      openapi: ${{ steps.changes.outputs.openapi }}
+      yamls: ${{ steps.changes.outputs.yamls }}
+      workflows: ${{ steps.changes.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            openapi:
+              - openapi.yaml
+            yamls:
+              - "**/*.y?ml"
+            workflows:
+              - .github/*.y?ml
+
+  lint-openapi:
+    needs: changes
+    if: needs.changes.outputs.openapi == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-
       - name: Lint OpenAPI spec
-        run: make lint
+        run: make lint-openapi
 
   lint-workflows:
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
+      - uses: actions/setup-go@v6
       - name: Lint GitHub Actions workflows
         run: make lint-workflows
+
+  lint-yamls:
+    needs: changes
+    if: needs.changes.outputs.yamls == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run yamllint
+        shell: bash
+        run: |
+          make lint-yamls

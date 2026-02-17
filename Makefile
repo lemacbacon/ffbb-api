@@ -1,6 +1,11 @@
-.PHONY: lint lint-workflows generate generate-go verify-go e2e
+.PHONY: lint lint-yamls lint-openapi lint-workflows generate generate-go verify-go e2e
 
-lint:
+lint: lint-yamls lint-openapi lint-workflows
+
+lint-yamls:
+	yamllint -d "{extends: relaxed, rules: {line-length: {max: 120}}}" .
+
+lint-openapi:
 	npx --yes @redocly/cli lint openapi.yaml
 
 lint-workflows:
