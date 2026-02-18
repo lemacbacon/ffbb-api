@@ -1,6 +1,4 @@
-.PHONY: lint lint-yamls lint-openapi lint-workflows generate e2e
-
-include go/Makefile
+.PHONY: lint lint-yamls lint-openapi lint-workflows generate generate-go e2e e2e-go
 
 lint: lint-yamls lint-openapi lint-workflows
 
@@ -15,4 +13,10 @@ lint-workflows:
 
 generate: generate-go
 
+generate-go:
+	$(MAKE) -C go generate-go
+
 e2e: e2e-go
+
+e2e-go:
+	$(MAKE) -C go e2e-go
