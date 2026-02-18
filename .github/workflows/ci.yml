@@ -1,4 +1,4 @@
-name: Lint
+name: CI
 
 on:
   pull_request:
@@ -10,6 +10,7 @@ jobs:
       openapi: ${{ steps.changes.outputs.openapi }}
       yamls: ${{ steps.changes.outputs.yamls }}
       workflows: ${{ steps.changes.outputs.workflows }}
+      go: ${{ steps.changes.outputs.go }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -22,6 +23,9 @@ jobs:
               - "**/*.y*ml"
             workflows:
               - ".github/workflows/*.y*ml"
+            go:
+              - openapi.yaml
+              - "go/**"
 
   lint-openapi:
     needs: changes
@@ -35,6 +39,15 @@ jobs:
       - name: Lint OpenAPI spec
         run: make lint-openapi
 
+  lint-yamls:
+    needs: changes
+    if: needs.changes.outputs.yamls == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run yamllint
+        run: make lint-yamls
+
   lint-workflows:
     needs: changes
     if: needs.changes.outputs.workflows == 'true'
@@ -45,13 +58,20 @@ jobs:
       - name: Lint GitHub Actions workflows
         run: make lint-workflows
 
-  lint-yamls:
+  verify-go:
     needs: changes
-    if: needs.changes.outputs.yamls == 'true'
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Run yamllint
-        shell: bash
-        run: |
-          make lint-yamls
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+      - name: Generate client
+        run: make generate-go
+      - name: Verify generated client is up to date
+        run: git diff --exit-code go/client/client.gen.go
+      - name: Verify go.mod is tidy
+        run: cd go && go mod tidy && git diff --exit-code go/go.mod go/go.sum
+      - name: Build
+        run: cd go && go build ./...
