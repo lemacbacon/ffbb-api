@@ -70,16 +70,19 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: go/go.mod
+      - name: Verify go.mod is tidy
+        run: go mod tidy && git diff --exit-code go.mod go.sum
       - name: Generate client
         run: make generate-go
       - name: Verify generated client is up to date
-        run: git diff --exit-code go/client/client.gen.go
-      - name: Verify go.mod is tidy
-        run: cd go && go mod tidy && git diff --exit-code go/go.mod go/go.sum
+        run: git diff --exit-code client/client.gen.go
       - name: Build
-        run: cd go && go build ./...
+        run: go build ./...

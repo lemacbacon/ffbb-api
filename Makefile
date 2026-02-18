@@ -1,4 +1,4 @@
-.PHONY: lint lint-yamls lint-openapi lint-workflows generate generate-go e2e
+.PHONY: lint lint-yamls lint-openapi lint-workflows generate generate-go e2e e2e-go
 
 lint: lint-yamls lint-openapi lint-workflows
 
@@ -14,8 +14,9 @@ lint-workflows:
 generate: generate-go
 
 generate-go:
-	cd go && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
-		--config oapi-codegen.yaml ../openapi.yaml
+	$(MAKE) -C go generate-go
 
-e2e:
-	cd go && go test ./client/ -count=1 -v
+e2e: e2e-go
+
+e2e-go:
+	$(MAKE) -C go e2e-go
