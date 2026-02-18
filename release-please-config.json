@@ -1,8 +1,8 @@
 {
   "packages": {
-    ".": {
-      "release-type": "simple",
-      "component": "ffbb-api",
+    "go": {
+      "release-type": "go",
+      "component": "go",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true
     }
