@@ -27,6 +27,14 @@ jobs:
               - openapi.yaml
               - "go/**"
 
+  lint-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: wagoid/commitlint-github-action@v6
+
   lint-openapi:
     needs: changes
     if: needs.changes.outputs.openapi == 'true'
